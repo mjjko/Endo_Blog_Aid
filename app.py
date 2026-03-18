@@ -1,4 +1,3 @@
-import os
 import json
 import urllib.parse
 import requests
@@ -338,10 +337,10 @@ def selection_dialog():
             st.rerun()
 
 # ==========================================
-# 🖥️ MAIN UI LAYOUT (TABS)
+# 🖥️ MAIN UI LAYOUT (TABS: SINGLE VS BATCH VS LOW-CODE)
 # ==========================================
 st.title("👩‍⚕️ Endo Health CMS")
-tab_single, tab_batch = st.tabs(["✍️ Single-Content Creator", "🚀 Auto-Batch Scraper (Website)"])
+tab_batch, tab_single, tab_nocode = st.tabs(["🚀 Auto-Batch Scraper (Website)", "✍️ Single-Content Creator", "🧩 Low-Code / No-Code Alternative"])
 
 # ------------------------------------------
 # TAB 1: SINGLE-CONTENT CREATOR
@@ -352,12 +351,11 @@ with tab_single:
         
         with col_main:
             with st.container(border=True):
-                # 🛠️ [FIX 1]: Lokales Logo laden
-                logo_b64 = get_local_image_base64("venv/logo.PNG")
+                # Lokales Logo laden
+                logo_b64 = get_local_image_base64("logo.png")
                 if logo_b64:
                     st.markdown(f'<img src="data:image/png;base64,{logo_b64}" class="faded-logo">', unsafe_allow_html=True)
                 else:
-                    # Fallback (Broken Image Icon) falls der Pfad lokal nicht existiert
                     st.markdown('<img src="https://cdn-icons-png.flaticon.com/512/3209/3209995.png" class="faded-logo">', unsafe_allow_html=True)
                     
                 st.markdown("<h3 style='text-align: center; margin-top:-10px; margin-bottom: 20px;'>Content Packaging Assistant</h3>", unsafe_allow_html=True)
@@ -382,7 +380,7 @@ with tab_single:
                     st.session_state.blog_title = st.radio("Vorschläge:", st.session_state.generated_titles, label_visibility="collapsed")
                     if st.button("🔄 Manuelle Eingabe wieder aktivieren"):
                         st.session_state.use_ai_title = False
-                        st.session_state.generated_titles =[]
+                        st.session_state.generated_titles = []
                         st.rerun()
                 else:
                     st.session_state.blog_title = st.session_state.manual_title_input
@@ -394,8 +392,7 @@ with tab_single:
             with st.container(border=True):
                 st.markdown("<h4>🛠️ Pipeline Settings</h4>", unsafe_allow_html=True)
                 
-                # 🛠️ [FIX 3]: Freepik Mystic ist wieder in der Liste
-                selected_model = st.selectbox("KI-Modell",["Flux Schnell", "Flux 2 Dev", "ZImage", "Freepik Mystic"])
+                selected_model = st.selectbox("KI-Modell", ["Flux Schnell", "Flux 2 Dev", "ZImage", "Freepik Mystic"])
                 
                 api_params = {}
                 if selected_model in ["Flux Schnell", "Flux 2 Dev", "ZImage"]:
@@ -409,7 +406,6 @@ with tab_single:
                 st.session_state.num_images = st.slider("Anzahl Bilder (Variationen)", 1, 8, 4)
                 
                 st.markdown("---")
-                # 🛠️ [FIX 2]: Prompt-Wechsel direkt in Block 2 (Hauptmenü)
                 st.markdown("<small style='font-weight:bold; color:#666;'>Aktueller Style-Prompt:</small>", unsafe_allow_html=True)
                 new_active_prompt = st.selectbox(
                     "Style wählen", 
@@ -497,177 +493,185 @@ with tab_single:
             if st.button("⬅️ Neues Cover erstellen"): reset_workflow(); st.rerun()
 
 # ------------------------------------------
-# TAB 2: BATCH PROCESSING (Auto-Scraper & Selective Reroll)
+# TAB 2: BATCH PROCESSING (Zentriert)
 # ------------------------------------------
 with tab_batch:
-    st.markdown("### 🕸️ Website Auto-Scraper & Batch Generator")
-    st.write("Ziehe automatisch die neuesten Titel, generiere Bilder, locke deine Favoriten und rendere den Rest neu.")
+    _, col_batch, _ = st.columns([1, 8, 1])
     
-    # 1. State-Sicherung: Nur initialisieren, wenn sie noch NICHT existieren
-    if "batch_titles" not in st.session_state: st.session_state.batch_titles = []
-    if "batch_images" not in st.session_state: st.session_state.batch_images = {}
-    if "batch_locked" not in st.session_state: st.session_state.batch_locked = {}
-    if "batch_prompts" not in st.session_state: st.session_state.batch_prompts = {}
-    if "batch_stage" not in st.session_state: st.session_state.batch_stage = "scrape"
-    
-    # ---------------------------------------------------------
-    # STAGE 1: SCRAPING
-    # ---------------------------------------------------------
-    if st.session_state.batch_stage == "scrape":
-        col_scrape, _ = st.columns([1, 2])
-        with col_scrape:
-            if st.button("🔍 1. Website Scrapen", use_container_width=True, type="primary"):
-                with st.spinner("Scrape und filtere Titel von endometriose.app..."):
-                    try:
-                        ext = ExtractionAgent()
-                        raw = ext.fetch_raw_data("https://endometriose.app/aktuelles-2/")
-                        san = SanitizerAgent()
-                        clean_titles = san.filter_titles(client, raw)
-                        
-                        st.session_state.batch_titles = clean_titles
-                        # WICHTIG: Dictionaries komplett neu und sauber aufbauen
-                        st.session_state.batch_images = {t: None for t in clean_titles}
-                        st.session_state.batch_locked = {t: False for t in clean_titles}
-                        st.session_state.batch_prompts = {t: "" for t in clean_titles}
-                        
-                        st.success(f"{len(clean_titles)} Titel erfolgreich geladen!")
-                    except Exception as e:
-                        st.error(f"Fehler beim Scraping: {e}")
-        
-        if st.session_state.batch_titles:
-            st.markdown("---")
-            st.write("**Gefundene Artikel:**")
-            for t in st.session_state.batch_titles:
-                st.markdown(f"- {t}")
-                
-            if st.button("🚀 2. Initial-Generierung Starten (Alle)", type="primary"):
-                st.session_state.batch_stage = "edit"
-                st.rerun()
-
-    # ---------------------------------------------------------
-    # STAGE 2: SELECTIVE REROLL (Grid Editor)
-    # ---------------------------------------------------------
-    elif st.session_state.batch_stage == "edit":
-        st.info("💡 **Tipp:** Aktiviere die Checkbox '🔒 Behalten' bei Bildern, die dir gefallen. Klicke dann unten auf '🔄 Unmarkierte neu generieren'.")
-        
-        col_ctrl1, col_ctrl2, col_ctrl3 = st.columns(3)
-        with col_ctrl1:
-            if st.button("🔄 Unmarkierte neu generieren", type="primary", use_container_width=True):
-                ad = ArtDirectorAgent(client=client, model_name=MODEL_NAME, style_guide=st.session_state.prompts[st.session_state.active_prompt_name])
-                
-                my_bar = st.progress(0, text="Starte Batch-Job...")
-                total_images = len(st.session_state.batch_titles)
-                
-                for idx, t in enumerate(st.session_state.batch_titles):
-                    if not st.session_state.batch_locked.get(t, False):
-                        try:
-                            my_bar.progress((idx) / total_images, text=f"Generiere Bild {idx+1}/{total_images}: {t[:30]}...")
-                            
-                            if not st.session_state.batch_prompts.get(t):
-                                camp = ad.create_campaign(t)
-                                st.session_state.batch_prompts[t] = camp.get('image_prompt', '')
-                            
-                            prompt = st.session_state.batch_prompts[t]
-                            
-                            # WICHTIG: Die render_images_pipeline gibt eine LISTE von Bildern zurück (hier: imgs = [Image])
-                            # Wir nutzen Modell "flux" (wie auf Seite 1)
-                            imgs = render_images_pipeline(
-                                prompt=prompt, 
-                                num_images=1, 
-                                provider="pollinations", 
-                                target_model="flux", 
-                                active_key=POLLINATIONS_API_KEY, 
-                                api_params={'width': 1024, 'height': 1024}
-                            )
-                            
-                            if imgs and len(imgs) > 0:
-                                # Wir speichern das ERSTE (und einzige) Bild der Liste hart im Dictionary
-                                st.session_state.batch_images[t] = imgs[0]
+    with col_batch:
+        with st.container(border=True):
+            st.markdown("<h3 style='text-align: center; margin-top:-10px; margin-bottom: 20px;'>🕸️ Website Auto-Scraper & Batch Generator</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #666;'>Ziehe automatisch die neuesten Titel, generiere Bilder, locke deine Favoriten und rendere den Rest neu.</p>", unsafe_allow_html=True)
+            
+            if "batch_titles" not in st.session_state: st.session_state.batch_titles = []
+            if "batch_images" not in st.session_state: st.session_state.batch_images = {}
+            if "batch_locked" not in st.session_state: st.session_state.batch_locked = {}
+            if "batch_prompts" not in st.session_state: st.session_state.batch_prompts = {}
+            if "batch_stage" not in st.session_state: st.session_state.batch_stage = "scrape"
+            
+            if st.session_state.batch_stage == "scrape":
+                col_scrape1, col_scrape2, col_scrape3 = st.columns([1, 2, 1])
+                with col_scrape2:
+                    if st.button("🔍 1. Website Scrapen", use_container_width=True, type="primary"):
+                        with st.spinner("Scrape und filtere Titel von endometriose.app..."):
+                            try:
+                                ext = ExtractionAgent()
+                                raw = ext.fetch_raw_data("https://endometriose.app/aktuelles-2/")
+                                san = SanitizerAgent()
+                                clean_titles = san.filter_titles(client, raw)
                                 
-                            time.sleep(1.5)
-                            
-                        except Exception as e:
-                            st.error(f"❌ Fehler bei '{t[:20]}...': {e}")
-                            continue
-                            
-                my_bar.progress(1.0, text="Batch abgeschlossen!")
-                time.sleep(0.5)
-                st.rerun() # UI hart refreshen, damit die neuen Bilder gezeichnet werden
+                                st.session_state.batch_titles = clean_titles
+                                st.session_state.batch_images = {t: None for t in clean_titles}
+                                st.session_state.batch_locked = {t: False for t in clean_titles}
+                                st.session_state.batch_prompts = {t: "" for t in clean_titles}
+                                
+                                st.success(f"{len(clean_titles)} Titel erfolgreich geladen!")
+                            except Exception as e:
+                                st.error(f"Fehler beim Scraping: {e}")
                 
-        with col_ctrl2:
-            if st.button("✅ 3. Auswahl bestätigen & Zum Blog-Mockup", type="primary", use_container_width=True):
-                # Zähle, wie viele Bilder = None sind
-                missing = sum(1 for t in st.session_state.batch_titles if st.session_state.batch_images.get(t) is None)
-                if missing > 0:
-                    st.warning(f"Es fehlen noch {missing} Bilder! Bitte klicke auf 'Unmarkierte neu generieren'.")
-                else:
-                    st.session_state.batch_stage = "mockup"
+                if st.session_state.batch_titles:
+                    st.markdown("---")
+                    st.write("**Gefundene Artikel:**")
+                    for t in st.session_state.batch_titles:
+                        st.markdown(f"- {t}")
+                        
+                    col_start1, col_start2, col_start3 = st.columns([1, 2, 1])
+                    with col_start2:
+                        if st.button("🚀 2. Initial-Generierung Starten (Alle)", type="primary", use_container_width=True):
+                            st.session_state.batch_stage = "edit"
+                            st.rerun()
+
+            elif st.session_state.batch_stage == "edit":
+                st.info("💡 **Tipp:** Aktiviere die Checkbox '🔒 Behalten' bei Bildern, die dir gefallen. Klicke dann unten auf '🔄 Unmarkierte neu generieren'.")
+                
+                col_ctrl1, col_ctrl2, col_ctrl3 = st.columns(3)
+                with col_ctrl1:
+                    if st.button("🔄 Unmarkierte neu generieren", type="primary", use_container_width=True):
+                        ad = ArtDirectorAgent(client=client, model_name=MODEL_NAME, style_guide=st.session_state.prompts[st.session_state.active_prompt_name])
+                        my_bar = st.progress(0, text="Starte Batch-Job...")
+                        total_images = len(st.session_state.batch_titles)
+                        
+                        for idx, t in enumerate(st.session_state.batch_titles):
+                            if not st.session_state.batch_locked.get(t, False):
+                                try:
+                                    my_bar.progress((idx) / total_images, text=f"Generiere Bild {idx+1}/{total_images}: {t[:30]}...")
+                                    if not st.session_state.batch_prompts.get(t):
+                                        camp = ad.create_campaign(t)
+                                        st.session_state.batch_prompts[t] = camp.get('image_prompt', '')
+                                    prompt = st.session_state.batch_prompts[t]
+                                    imgs = render_images_pipeline(prompt=prompt, num_images=1, provider="pollinations", target_model="flux", active_key=POLLINATIONS_API_KEY, api_params={'width': 512, 'height': 512})
+                                    if imgs and len(imgs) > 0:
+                                        st.session_state.batch_images[t] = imgs[0]
+                                    time.sleep(1.5)
+                                except Exception as e:
+                                    st.error(f"❌ Fehler bei '{t[:20]}...': {e}")
+                                    continue
+                        my_bar.progress(1.0, text="Batch abgeschlossen!")
+                        time.sleep(0.5)
+                        st.rerun() 
+                        
+                with col_ctrl2:
+                    if st.button("✅ 3. Auswahl bestätigen & Zum Blog-Mockup", type="primary", use_container_width=True):
+                        missing = sum(1 for t in st.session_state.batch_titles if st.session_state.batch_images.get(t) is None)
+                        if missing > 0:
+                            st.warning(f"Es fehlen noch {missing} Bilder! Bitte klicke auf 'Unmarkierte neu generieren'.")
+                        else:
+                            st.session_state.batch_stage = "mockup"
+                            st.rerun()
+                            
+                with col_ctrl3:
+                    if st.button("🗑️ Batch verwerfen & Neu Scrapen", use_container_width=True):
+                        st.session_state.batch_titles = []
+                        st.session_state.batch_images = {}
+                        st.session_state.batch_locked = {}
+                        st.session_state.batch_prompts = {}
+                        st.session_state.batch_stage = "scrape"
+                        st.rerun()
+
+                st.markdown("---")
+                
+                cols = st.columns(3)
+                for idx, title in enumerate(st.session_state.batch_titles):
+                    with cols[idx % 3]:
+                        with st.container(border=True):
+                            short_title = title[:45] + "..." if len(title) > 45 else title
+                            st.markdown(f"**{short_title}**")
+                            
+                            img = st.session_state.batch_images.get(title)
+                            if img is not None:
+                                st.image(img, width="stretch")
+                                locked = st.checkbox("🔒 Behalten", value=st.session_state.batch_locked.get(title, False), key=f"lock_{idx}")
+                                st.session_state.batch_locked[title] = locked
+                                
+                                with st.expander("Prompt anpassen"):
+                                    new_p = st.text_area("Prompt:", value=st.session_state.batch_prompts.get(title, ""), key=f"prompt_{idx}", label_visibility="collapsed")
+                                    if new_p != st.session_state.batch_prompts.get(title, ""):
+                                        st.session_state.batch_prompts[title] = new_p
+                                        st.session_state.batch_locked[title] = False 
+                            else:
+                                st.markdown("<div style='height: 150px; display: flex; align-items: center; justify-content: center; background-color: #E8EBEB; border-radius: 8px; color: #888;'>Wartet auf Generierung...</div>", unsafe_allow_html=True)
+                                st.caption("Noch kein Bild vorhanden.")
+
+            elif st.session_state.batch_stage == "mockup":
+                st.markdown("<h3 style='text-align: center; margin-top:-10px; margin-bottom: 20px;'>🎉 Endo Health - Aktuelles (Live Preview)</h3>", unsafe_allow_html=True)
+                st.write("So sieht die Blog-Übersichtsseite mit deinen finalen Bildern aus.")
+                
+                if st.button("⬅️ Zurück zum Editor"):
+                    st.session_state.batch_stage = "edit"
                     st.rerun()
                     
-        with col_ctrl3:
-            if st.button("🗑️ Batch verwerfen & Neu Scrapen", use_container_width=True):
-                st.session_state.batch_titles = []
-                st.session_state.batch_images = {}
-                st.session_state.batch_locked = {}
-                st.session_state.batch_prompts = {}
-                st.session_state.batch_stage = "scrape"
-                st.rerun()
-
-        st.markdown("---")
-        
-        cols = st.columns(3)
-        for idx, title in enumerate(st.session_state.batch_titles):
-            with cols[idx % 3]:
-                with st.container(border=True):
-                    short_title = title[:45] + "..." if len(title) > 45 else title
-                    st.markdown(f"**{short_title}**")
-                    
-                    # WICHTIG: Das Bild wird aus dem State geholt
+                st.markdown("---")
+                
+                mockup_cols = st.columns(3)
+                for idx, title in enumerate(st.session_state.batch_titles):
                     img = st.session_state.batch_images.get(title)
                     if img is not None:
-                        st.image(img, use_container_width=True)
+                        cropped_img = apply_ratio_consensus_crop(img, target_ratio=1.77)
+                        b64 = image_to_base64(cropped_img)
                         
-                        # Die Checkbox manipuliert sofort den State
-                        locked = st.checkbox("🔒 Behalten", value=st.session_state.batch_locked.get(title, False), key=f"lock_{idx}")
-                        st.session_state.batch_locked[title] = locked
-                        
-                        with st.expander("Prompt anpassen"):
-                            new_p = st.text_area("Prompt:", value=st.session_state.batch_prompts.get(title, ""), key=f"prompt_{idx}", label_visibility="collapsed")
-                            if new_p != st.session_state.batch_prompts.get(title, ""):
-                                st.session_state.batch_prompts[title] = new_p
-                                st.session_state.batch_locked[title] = False 
-                    else:
-                        st.markdown("<div style='height: 150px; display: flex; align-items: center; justify-content: center; background-color: #E8EBEB; border-radius: 8px; color: #888;'>Wartet auf Generierung...</div>", unsafe_allow_html=True)
-                        st.caption("Noch kein Bild vorhanden.")
+                        html_card = f"""
+                        <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #EAEAEA;">
+                            <img src="data:image/jpeg;base64,{b64}" style="width: 100%; height: 180px; object-fit: cover;">
+                            <div style="padding: 15px;">
+                                <span style="color: #B30047; font-weight: 700; font-size: 11px; text-transform: uppercase;">Artikel</span>
+                                <h4 style="margin: 8px 0 0 0; color: #1a1a1a; font-size: 16px; line-height: 1.3;">{title}</h4>
+                            </div>
+                        </div>
+                        """
+                        with mockup_cols[idx % 3]:
+                            st.markdown(html_card, unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # STAGE 3: BLOG BATCH MOCKUP
-    # ---------------------------------------------------------
-    elif st.session_state.batch_stage == "mockup":
-        st.subheader("🎉 Endo Health - Aktuelles (Live Preview)")
-        st.write("So sieht die Blog-Übersichtsseite mit deinen finalen Bildern aus.")
-        
-        if st.button("⬅️ Zurück zum Editor"):
-            st.session_state.batch_stage = "edit"
-            st.rerun()
+# ------------------------------------------
+# TAB 3: LOW-CODE / NO-CODE ALTERNATIVE
+# ------------------------------------------
+with tab_nocode:
+    _, col_nocode, _ = st.columns([1, 8, 1])
+    
+    with col_nocode:
+        with st.container(border=True):
+            st.markdown("<h3 style='text-align: center; margin-top:-10px; margin-bottom: 20px;'>🧩 Die Low-Code Architektur</h3>", unsafe_allow_html=True)
+            st.markdown("""
+            In der Stellenausschreibung wurde gefragt, wann Tools wie **n8n, Make oder Rivet** schneller ans Ziel führen als ein selbst geschriebenes Script.
             
-        st.markdown("---")
-        
-        mockup_cols = st.columns(3)
-        for idx, title in enumerate(st.session_state.batch_titles):
-            img = st.session_state.batch_images.get(title)
-            if img is not None:
-                cropped_img = apply_ratio_consensus_crop(img, target_ratio=1.77) # 16:9
-                b64 = image_to_base64(cropped_img)
-                
-                html_card = f"""
-                <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #EAEAEA;">
-                    <img src="data:image/jpeg;base64,{b64}" style="width: 100%; height: 180px; object-fit: cover;">
-                    <div style="padding: 15px;">
-                        <span style="color: #B30047; font-weight: 700; font-size: 11px; text-transform: uppercase;">Artikel</span>
-                        <h4 style="margin: 8px 0 0 0; color: #1a1a1a; font-size: 16px; line-height: 1.3;">{title}</h4>
-                    </div>
-                </div>
-                """
-                with mockup_cols[idx % 3]:
-                    st.markdown(html_card, unsafe_allow_html=True)
+            **Meine Architekten-Einschätzung:**
+            Ein Python/Streamlit MVP (wie Tab 1 und 2) ist perfekt für hochgradig anpassbare UIs und komplexe State-Management-Workflows (Human-in-the-Loop). 
+            Sobald der visuelle Stil der Bilder und die API-Logik aber zu **100 % finalisiert** sind und das System "Headless" im Hintergrund laufen soll, ist ein Low-Code Tool die bessere Wahl.
+            
+            **Vorteile von Rivet/n8n für Endo Health:**
+            1. **Wartbarkeit:** Das Content-Team kann den "Art Director Prompt" oder die API-Endpunkte visuell anpassen, ohne einen Developer zu brauchen.
+            2. **Integration:** Wir können den Output-Node direkt an das echte CMS (z.B. Webflow, WordPress, Contentful) von Endo Health anbinden.
+            3. **Skalierbarkeit:** Webhooks triggern den Agent-Swarm vollautomatisch, sobald ein Redakteur auf "Artikel speichern" klickt.
+            """)
+            
+            st.markdown("---")
+            st.markdown("#### Beispiel-Architektur (Rivet Workflow)")
+            
+            # Bild laden (Fallback, falls nocode_example.png lokal nicht existiert)
+            try:
+                nocode_img_b64 = get_local_image_base64("nocode_example.png")
+                if nocode_img_b64:
+                    st.markdown(f'<img src="data:image/png;base64,{nocode_img_b64}" style="width: 100%; border-radius: 8px; border: 1px solid #EAEAEA;">', unsafe_allow_html=True)
+                else:
+                    st.info("💡 **Hinweis:** Bitte lade ein Bild mit dem Namen `nocode_example.png` in dein Hauptverzeichnis auf GitHub hoch, um hier einen Workflow-Screenshot anzuzeigen.")
+            except Exception:
+                st.info("💡 **Hinweis:** Bitte lade ein Bild mit dem Namen `nocode_example.png` in dein Hauptverzeichnis auf GitHub hoch, um hier einen Workflow-Screenshot anzuzeigen.")
