@@ -567,7 +567,7 @@ with tab_batch:
                                     st.error(f"❌ Fehler bei '{t[:20]}...': {e}")
                                     continue
                         my_bar.progress(1.0, text="Batch abgeschlossen!")
-                        time.sleep(0.5)
+                        time.sleep(1.3)
                         st.rerun() 
                         
                 with col_ctrl2:
