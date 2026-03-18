@@ -343,7 +343,7 @@ st.title("👩‍⚕️ Endo Health CMS")
 tab_batch, tab_single, tab_nocode = st.tabs(["🚀 Auto-Batch Scraper (Website)", "✍️ Single-Content Creator", "🧩 Low-Code / No-Code Alternative"])
 
 # ------------------------------------------
-# TAB 1: SINGLE-CONTENT CREATOR
+# TAB 2: SINGLE-CONTENT CREATOR
 # ------------------------------------------
 with tab_single:
     if st.session_state.workflow_stage == "input":
@@ -493,7 +493,7 @@ with tab_single:
             if st.button("⬅️ Neues Cover erstellen"): reset_workflow(); st.rerun()
 
 # ------------------------------------------
-# TAB 2: BATCH PROCESSING (Zentriert)
+# TAB 1: BATCH PROCESSING (Zentriert)
 # ------------------------------------------
 with tab_batch:
     _, col_batch, _ = st.columns([1, 8, 1])
@@ -543,32 +543,48 @@ with tab_batch:
 
             elif st.session_state.batch_stage == "edit":
                 st.info("💡 **Tipp:** Aktiviere die Checkbox '🔒 Behalten' bei Bildern, die dir gefallen. Klicke dann unten auf '🔄 Unmarkierte neu generieren'.")
-                
-                col_ctrl1, col_ctrl2, col_ctrl3 = st.columns(3)
-                with col_ctrl1:
-                    if st.button("🔄 Unmarkierte neu generieren", type="primary", use_container_width=True):
-                        ad = ArtDirectorAgent(client=client, model_name=MODEL_NAME, style_guide=st.session_state.prompts[st.session_state.active_prompt_name])
-                        my_bar = st.progress(0, text="Starte Batch-Job...")
-                        total_images = len(st.session_state.batch_titles)
-                        
-                        for idx, t in enumerate(st.session_state.batch_titles):
-                            if not st.session_state.batch_locked.get(t, False):
-                                try:
-                                    my_bar.progress((idx) / total_images, text=f"Generiere Bild {idx+1}/{total_images}: {t[:30]}...")
-                                    if not st.session_state.batch_prompts.get(t):
-                                        camp = ad.create_campaign(t)
-                                        st.session_state.batch_prompts[t] = camp.get('image_prompt', '')
-                                    prompt = st.session_state.batch_prompts[t]
-                                    imgs = render_images_pipeline(prompt=prompt, num_images=1, provider="pollinations", target_model="flux", active_key=POLLINATIONS_API_KEY, api_params={'width': 512, 'height': 512})
-                                    if imgs and len(imgs) > 0:
-                                        st.session_state.batch_images[t] = imgs[0]
-                                    time.sleep(1.5)
-                                except Exception as e:
-                                    st.error(f"❌ Fehler bei '{t[:20]}...': {e}")
-                                    continue
-                        my_bar.progress(1.0, text="Batch abgeschlossen!")
-                        time.sleep(0.5)
-                        st.rerun() 
+            if "batch_initialized" not in st.session_state:
+                    st.session_state.batch_initialized = False
+
+            if not st.session_state.batch_initialized:
+                st.session_state.batch_initialized = True
+
+                ad = ArtDirectorAgent(
+                    client=client,
+                    model_name=MODEL_NAME,
+                    style_guide=st.session_state.prompts[st.session_state.active_prompt_name]
+                )
+
+                my_bar = st.progress(0, text="Initiale Generierung startet...")
+                total_images = len(st.session_state.batch_titles)
+
+                for idx, t in enumerate(st.session_state.batch_titles):
+                    try:
+                        my_bar.progress((idx + 1) / total_images, text=f"Generiere {idx+1}/{total_images}")
+
+                        camp = ad.create_campaign(t)
+                        prompt = camp.get('image_prompt', '')
+                        st.session_state.batch_prompts[t] = prompt
+
+                        imgs = render_images_pipeline(
+                            prompt=prompt,
+                            num_images=1,
+                            provider="pollinations",
+                            target_model="flux",
+                            active_key=POLLINATIONS_API_KEY,
+                            api_params={'width': 512, 'height': 512}
+                        )
+
+                        if imgs and len(imgs) > 0:
+                            st.session_state.batch_images[t] = imgs[0]
+
+                        time.sleep(0.4)
+
+                    except Exception as e:
+                        st.error(f"Fehler bei {t[:20]}: {e}")
+
+                my_bar.progress(1.0, text="Initiale Generierung fertig")
+                st.rerun()
                         
                 with col_ctrl2:
                     if st.button("✅ 3. Auswahl bestätigen & Zum Blog-Mockup", type="primary", use_container_width=True):
@@ -651,15 +667,15 @@ with tab_nocode:
         with st.container(border=True):
             st.markdown("<h3 style='text-align: center; margin-top:-10px; margin-bottom: 20px;'>🧩 Die Low-Code Architektur</h3>", unsafe_allow_html=True)
             st.markdown("""
-            In der Stellenausschreibung wurde gefragt, wann Tools wie **n8n, FreePik oder Rivet** schneller ans Ziel führen als ein selbst geschriebenes Script.
+            In der Stellenausschreibung wurde gefragt, wann Tools wie **n8n, Make oder Rivet** schneller ans Ziel führen als ein selbst geschriebenes Script.
             
-            **Meine Einschätzung:**
+            **Meine Architekten-Einschätzung:**
             Ein Python/Streamlit MVP (wie Tab 1 und 2) ist perfekt für hochgradig anpassbare UIs und komplexe State-Management-Workflows (Human-in-the-Loop). 
             Sobald der visuelle Stil der Bilder und die API-Logik aber zu **100 % finalisiert** sind und das System "Headless" im Hintergrund laufen soll, ist ein Low-Code Tool die bessere Wahl.
             
             **Vorteile von Rivet/n8n für Endo Health:**
             1. **Wartbarkeit:** Das Content-Team kann den "Art Director Prompt" oder die API-Endpunkte visuell anpassen, ohne einen Developer zu brauchen.
-            2. **Integration:** Wir können den Output-Node direkt an das echte CMS (z.B. Webflow, WordPress, Contentful) von endometriose.app anbinden.
+            2. **Integration:** Wir können den Output-Node direkt an das echte CMS (z.B. Webflow, WordPress, Contentful) von Endo Health anbinden.
             3. **Skalierbarkeit:** Webhooks triggern den Agent-Swarm vollautomatisch, sobald ein Redakteur auf "Artikel speichern" klickt.
             """)
             
