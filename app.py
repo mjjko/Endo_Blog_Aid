@@ -651,15 +651,15 @@ with tab_nocode:
         with st.container(border=True):
             st.markdown("<h3 style='text-align: center; margin-top:-10px; margin-bottom: 20px;'>🧩 Die Low-Code Architektur</h3>", unsafe_allow_html=True)
             st.markdown("""
-            In der Stellenausschreibung wurde gefragt, wann Tools wie **n8n, Make oder Rivet** schneller ans Ziel führen als ein selbst geschriebenes Script.
+            In der Stellenausschreibung wurde gefragt, wann Tools wie **n8n, FreePik oder Rivet** schneller ans Ziel führen als ein selbst geschriebenes Script.
             
-            **Meine Architekten-Einschätzung:**
+            **Meine Einschätzung:**
             Ein Python/Streamlit MVP (wie Tab 1 und 2) ist perfekt für hochgradig anpassbare UIs und komplexe State-Management-Workflows (Human-in-the-Loop). 
             Sobald der visuelle Stil der Bilder und die API-Logik aber zu **100 % finalisiert** sind und das System "Headless" im Hintergrund laufen soll, ist ein Low-Code Tool die bessere Wahl.
             
             **Vorteile von Rivet/n8n für Endo Health:**
             1. **Wartbarkeit:** Das Content-Team kann den "Art Director Prompt" oder die API-Endpunkte visuell anpassen, ohne einen Developer zu brauchen.
-            2. **Integration:** Wir können den Output-Node direkt an das echte CMS (z.B. Webflow, WordPress, Contentful) von Endo Health anbinden.
+            2. **Integration:** Wir können den Output-Node direkt an das echte CMS (z.B. Webflow, WordPress, Contentful) von endometriose.app anbinden.
             3. **Skalierbarkeit:** Webhooks triggern den Agent-Swarm vollautomatisch, sobald ein Redakteur auf "Artikel speichern" klickt.
             """)
             
