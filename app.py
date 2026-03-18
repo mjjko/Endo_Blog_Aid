@@ -668,10 +668,10 @@ with tab_nocode:
             
             # Bild laden (Fallback, falls nocode_example.png lokal nicht existiert)
             try:
-                nocode_img_b64 = get_local_image_base64("nocode_example.png")
+                nocode_img_b64 = get_local_image_base64("no-code_WORKFLOW.PNG")
                 if nocode_img_b64:
                     st.markdown(f'<img src="data:image/png;base64,{nocode_img_b64}" style="width: 100%; border-radius: 8px; border: 1px solid #EAEAEA;">', unsafe_allow_html=True)
                 else:
-                    st.info("💡 **Hinweis:** Bitte lade ein Bild mit dem Namen `nocode_example.png` in dein Hauptverzeichnis auf GitHub hoch, um hier einen Workflow-Screenshot anzuzeigen.")
+                    st.info("💡 **Hinweis:** Bitte lade ein Bild mit dem Namen `no-code_WORKFLOW.PNG` in dein Hauptverzeichnis auf GitHub hoch, um hier einen Workflow-Screenshot anzuzeigen.")
             except Exception:
-                st.info("💡 **Hinweis:** Bitte lade ein Bild mit dem Namen `nocode_example.png` in dein Hauptverzeichnis auf GitHub hoch, um hier einen Workflow-Screenshot anzuzeigen.")
+                st.info("💡 **Hinweis:** Bitte lade ein Bild mit dem Namen `no-code_WORKFLOW.PNG` in dein Hauptverzeichnis auf GitHub hoch, um hier einen Workflow-Screenshot anzuzeigen.")
